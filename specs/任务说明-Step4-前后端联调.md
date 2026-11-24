@@ -13,10 +13,8 @@
 1. **只在 `I:\apps\trend-compass` 里写文件**，不要碰 `I:\apps\yupi-hot-monitor`（只读参考）。
 2. **fetch 写完整地址** `http://localhost:3001/api/probe/status`，**不要**写相对路径 `/api/probe/status`——Vite dev 不会代理到 3001，相对路径会打到 5173 然后 404。
 3. **字段名是 `state`**：从返回体读 `data.state`（值是 `"online"`），**不要**读 `data.status`。
-4. **跨域必须处理**：浏览器从 5173 fetch 3001 会被 CORS 拦。放行来源 `http://localhost:5173`。实现二选一：
-   - 后端装 `cors` 包，`app.use(cors({ origin: 'http://localhost:5173' }))`；
-   - 或后端手写响应头中间件（不引入新依赖）。
-   **本步允许为 CORS 加依赖**（规范第 13 条红线针对"代码 AI 不得自行加依赖"，这一步的方案 AI 明确授权装 `cors` 这一个包，别加别的）。
+4. **跨域必须处理**：浏览器从 5173 fetch 3001 会被 CORS 拦。放行来源 `http://localhost:5173`。
+   **方案 AI 已拍板：零依赖手写中间件**（与 Step 2/3 的零依赖测试保持一致；本切片不引入任何新依赖，规范第 13 条红线继续生效）。做法：在 `api/src/main.ts` 加一个中间件，对来源为 `http://localhost:5173` 的请求设 `Access-Control-Allow-Origin: http://localhost:5173` 响应头；`OPTIONS` 预检请求直接返回 204。**`api/package.json` 不动，不要装 `cors`**。
 5. **只提交不推送**（push 由方案 AI 统一做）；不要 add `specs/` 文档。
 6. 提交信息固定为 `feat(web): bind probe status to dashboard`。
 7. **本步不做**：不做美化、不加样式库、不做关键词管理、不接数据库/AI/信息源。只把探针状态显示出来。
@@ -32,9 +30,11 @@
 
 本步测的是**跨端数据绑定**。零新依赖方案（沿用前两步）：
 
-- **契约测试（纯前端，不需要起后端）**：从 `api` 的 router 拿返回体结构做断言容易跨目录，简化为——写一个测试直接 fetch 真实后端 `http://localhost:3001/api/probe/status`，断言拿到 `state: "online"` 且无 `status` 字段。**这个测试要求跑测时后端 3001 已启动**。
-- 想测"页面渲染出探针状态"：用 `react-dom/server` 的 `renderToString` 测不了 fetch（SSR 不执行 useEffect）。所以页面渲染这部分**用浏览器实测 + 截图验收**，不写自动化测试；自动化测试只覆盖"后端契约正确"。
-- 若你觉得这个拆法有问题，**先贴出来问我，别自己猜着写**。
+- **契约测试（fetch 真实后端，跑测前需先起 3001）**：直接 fetch `http://localhost:3001/api/probe/status`，分两条断言：
+  1. **数据契约**：200 / `state === 'online'` / 无 `status` 字段 —— 这条 Step 2 已实现，**本来就该绿**，作用是锁住 Step 2 的成果防回归。
+  2. **跨域契约**：带 `Origin: http://localhost:5173` 请求，断言响应头 `access-control-allow-origin === 'http://localhost:5173'` —— 这条**现在是红的**（实测拿到 `null`），正是 Step 4 唯一缺的那块。
+- 想测"页面渲染出探针状态"：用 `react-dom/server` 的 `renderToString` 测不了 fetch（SSR 不执行 useEffect）。所以页面渲染这部分**用浏览器实测 + 截图验收**，不写自动化测试。
+- **红绿判定就按上面两条**：前一条绿、后一条红 → 红得对，放行绿阶段。若你觉得这个拆法有问题，先贴出来问我。
 
 测试文件：`web/tests/probe-contract.test.ts`（或 `.tsx`，按你测试内容定），test script 沿用已有 `node --import tsx --test tests/*.test.ts*`（注意 glob 要能同时匹配 `.ts` 和 `.tsx`，必要时调整）。
 
@@ -42,10 +42,9 @@
 
 | 文件 | 动作 | 阶段 | 内容要点 |
 | --- | --- | --- | --- |
-| `web/tests/probe-contract.test.ts` | 新增 | 红 | fetch 真实后端探针接口，断言 200 / `state === 'online'` / 无 `status` 字段。**跑测前需先起后端 3001** |
+| `web/tests/probe-contract.test.ts` | 新增 | 红 | 两条断言（已在红阶段落地，见上）：数据契约绿、跨域契约红。**跑测前需先起后端 3001** |
 | `web/src/App.tsx` | 修改 | 绿 | 用 `useEffect` + `fetch` 拉探针状态，`useState` 存结果，渲染"探针状态：online"（或失败时显示"探针不可达"）。保留 `<h1>热点罗盘</h1>` |
-| `api/src/main.ts` | 修改 | 绿 | 加 CORS 放行 `http://localhost:5173`（装 cors 或手写响应头，二选一） |
-| `api/package.json` | 修改（若选装 cors） | 绿 | 只加 `cors` 一个依赖 + `@types/cors` |
+| `api/src/main.ts` | 修改 | 绿 | **手写** CORS 中间件放行 `http://localhost:5173`：设 `Access-Control-Allow-Origin` 头，`OPTIONS` 返回 204。**不改 `api/package.json`，不装依赖** |
 
 **前端 fetch 的坑**：`useEffect` 里 fetch，记得处理 loading/错误态；组件卸载时若有 pending 请求，简单场景可忽略，但别让报错刷屏。
 
@@ -60,7 +59,7 @@ cd /i/apps/trend-compass/api && npm run dev
 cd /i/apps/trend-compass/web && npm test
 ```
 
-**看到什么算对**：`probe-contract` 测试失败——但如果后端已起、探针接口已对，这个契约测试本来就该过。**所以红的判定请这样设计**：先让测试断言一个当前页面还没做到的东西（例如渲染"探针状态"文字），或者你直接贴出你设计的红测试并说明它为什么现在会失败，我确认后再放行。不确定就贴出来问，别硬凑一个假红。
+**看到什么算对**：三条测试里，标题渲染绿、数据契约绿、**跨域契约红**（`actual: null` vs `expected: 'http://localhost:5173'`）。红锁定的是"后端还没放行跨域"这一真实缺口，不是硬凑的假红。**方案 AI 已于红阶段实跑确认此红通过**（2026-11-24，后端 3001 已起）。
 
 **绿阶段**（前端 5173 + 后端 3001 都起）：
 
@@ -81,8 +80,8 @@ curl -s http://localhost:5173/ | grep -o '热点罗盘' # 前端页面在
 
 ```bash
 cd /i/apps/trend-compass
-git status              # 确认只改了 web/src/App.tsx、api 相关、测试文件
-git add web/src api/src api/package.json
+git status              # 确认只改了 web/src/App.tsx、web/package.json、web/tests/、api/src/main.ts
+git add web/src web/package.json web/tests api/src/main.ts
 git commit -m "feat(web): bind probe status to dashboard"
 git log -1 --oneline
 ```
