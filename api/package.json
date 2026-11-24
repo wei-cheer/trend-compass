@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/main.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "test": "node --import tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "dotenv": "^18.0.10",
