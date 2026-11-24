@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "test": "node --import tsx --test tests/*.test.tsx"
+    "test": "node --import tsx --test tests/*.test.ts*"
   },
   "dependencies": {
     "react": "^19.3.1",
