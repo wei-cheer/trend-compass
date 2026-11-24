@@ -17,7 +17,8 @@
 5. 依赖用国内镜像：`npm install --registry=https://registry.npmmirror.com`。
 6. **只提交不推送**（push 由方案 AI 统一做）；不要 add `specs/` 下的文档。
 7. 提交信息固定为 `feat(web): scaffold vite react app`。
-8. **Node 版本**：本机 v22.22.2，满足 Vite 要求（20.19+/22.12+）。若 `npm install` 报引擎版本警告，先 `node -v` 核对，别硬装。
+8. **Node 版本**：方案 AI 实测 `node -v` = **v22.22.2**，满足 Vite 8 引擎（`^20.19.0 || >=22.12.0`）。代码 AI 若测到 v22.12.0，以自己 `node -v` 为准，只要 ≥22.12 即可——两版都满足，不是阻塞。
+9. **实际解析到 Vite 8 / TypeScript 7**：任务说明写的是引擎下限，未锁主版本，装到 Vite 8.3.8 + TS 7.0.2 属正常。但 **TS 7 有 `TS5011` 坑**（Step 1 踩过）：`tsconfig.json` 必须显式写 `rootDir: "src"`，否则 `npm run build` 报 "common source directory ... must be explicitly set"。绿阶段写 tsconfig 时直接加上，别等报错。
 
 ## 工作流：先红后绿，分两次贴回（TDD）
 
@@ -32,7 +33,7 @@
 | --- | --- | --- | --- |
 | `web/package.json` | 新增 | 红 | name 用 `trend-compass-web`；type module；scripts 含 `dev`（`vite`）、`build`（`tsc -b && vite build`）、`test`（`node --import tsx --test tests/*.test.tsx`）；依赖 `react`、`react-dom`；devDeps `vite`、`typescript`、`@vitejs/plugin-react`、`@types/react`、`@types/react-dom`、`tsx` |
 | `web/tests/app-render.test.tsx` | 新增 | 红 | 用 `node:test` + `node:assert/strict`；`import { renderToString } from 'react-dom/server'`；`import App from '../src/App'`；断言 `renderToString(<App />)` 的输出包含 `热点罗盘`。**用 .tsx 后缀**，测试里如用 JSX 需确认 tsx 能解析（不确定就贴出来问我，别猜） |
-| `web/tsconfig.json` | 新增 | 绿 | JSX `react-jsx`、module ESNext、moduleResolution bundler、strict |
+| `web/tsconfig.json` | 新增 | 绿 | JSX `react-jsx`、module ESNext、moduleResolution bundler、strict、**`rootDir: "src"`**（TS 7 的 TS5011，必须显式写） |
 | `web/vite.config.ts` | 新增 | 绿 | 用 `defineConfig` + `react()` 插件；`server.port` 设 5173 |
 | `web/index.html` | 新增 | 绿 | 标准 Vite 模板，`<div id="root">`，`<script type="module" src="/src/main.tsx">`，`<title>热点罗盘</title>` |
 | `web/src/main.tsx` | 新增 | 绿 | `createRoot(document.getElementById('root')!)` 渲染 `<App />` |
