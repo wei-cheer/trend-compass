@@ -37,11 +37,14 @@
 | `api/tests/probe-status.test.ts` | 新增 | 红 | 用 `node:test` + `node:assert/strict`；起一个临时端口的 app 实例（别用 3001，会和 dev 冲突）；`fetch('/api/probe/status')` 断言：HTTP 200、`state === 'online'`、`checkedAt` 能被 `Date.parse` 解析、**不含 `status` 字段**。跑完关闭 server |
 | `api/package.json` | 修改 | 红 | 加一行 `"test": "node --import tsx --test tests/*.test.ts"`（Node 22 用 `--import tsx` 加载 TS）。只加这一行，不动其他字段 |
 | `api/src/modules/probe/router.ts` | 新增 | 绿 | 用 `express.Router()`；定义 `GET /status`，返回 `res.json({ state: 'online', checkedAt: new Date().toISOString() })`；导出 router |
-| `api/src/main.ts` | 修改 | 绿 | 导入 probe router，用 `app.use('/api/probe', probeRouter)` 挂载；**把 `app` 导出**（`export default app` 或 `export { app }`），供测试起实例；**保留**原来的 `app.listen` 和那行启动日志 |
+| `api/src/main.ts` | 修改 | 红（可测性改造） | **把 `app` 导出**（`export default app`），并把 `app.listen(...)` 包进"仅直接运行时执行"的判断（`import.meta.url === pathToFileURL(process.argv[1]).href`）；启动日志原样保留。不这么做，测试 `import app` 会报 `does not provide an export named 'default'`，红就不对 |
+| `api/src/main.ts` | 修改（同一文件） | 绿 | 导入 probe router，用 `app.use('/api/probe', probeRouter)` 挂载。**保留**红阶段的可测性改造和启动日志 |
 
 挂载前缀是 `/api/probe`，路由内部是 `/status`，拼起来才是 `/api/probe/status`。别把前缀写成 `/api/probe/status` 又在路由里再写 `/status`（会变成 `/api/probe/status/status`）。
 
-**测试起实例的坑**：`main.ts` 现在一 import 就 `listen(3001)`，测试直接 import 会占用端口。所以绿阶段要把 `app` 抽出来导出，并让"直接运行时才 listen"（例如判断 `import.meta.url` 是否等于入口）。测试里拿到 `app` 后 `app.listen(0)` 用随机端口，从 `server.address()` 取真实端口再 fetch，跑完 `server.close()`。不确定怎么写就贴出来问我，别猜。
+**测试起实例的坑**：`main.ts` 现在一 import 就 `listen(3001)`，测试直接 import 会占用端口。所以**红阶段就要**把 `app` 抽出来导出，并让"直接运行时才 listen"（判断 `import.meta.url` 是否等于入口）。测试里拿到 `app` 后 `app.listen(0)` 用随机端口，从 `server.address()` 取真实端口再 fetch，跑完 `server.close()`。
+
+**裁决记录（2026-11-24 12:28）**：代码 AI 在红阶段提前做了 `main.ts` 的导出改造，属于必要的可测性改造（否则 import 报错、红不对），未加路由未改端口——**方案 AI 已验收通过，不必回退**。原任务说明把导出归到绿阶段是划分失误，已修正到上表红阶段。
 
 ## 验收命令
 
