@@ -164,6 +164,65 @@ body {
   line-height: var(--lh-tight);
 }
 
+/* 烽火热点列表 */
+.beacon-board {
+  margin-top: var(--space-8);
+}
+
+.beacon-board__title {
+  margin: 0 0 var(--space-4);
+  color: var(--gold);
+  font-size: var(--fs-h3);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.04em;
+}
+
+.beacon-board__hint {
+  margin: 0;
+  color: var(--paper-dim);
+  font-size: var(--fs-caption);
+}
+
+.beacon-card {
+  padding: var(--space-4);
+  background: var(--ink-surface);
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.beacon-card + .beacon-card {
+  margin-top: var(--space-3);
+}
+
+.beacon-card__title {
+  display: block;
+  color: var(--paper);
+  font-size: var(--fs-body);
+  text-decoration: none;
+}
+
+.beacon-card__title:hover {
+  color: var(--gold);
+}
+
+.beacon-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-2) 0 0;
+  color: var(--paper-dim);
+  font-size: var(--fs-caption);
+}
+
+.beacon-card__source {
+  color: var(--celadon);
+}
+
+.beacon-card__score {
+  color: var(--gold);
+}
+
 /* 响应式：小屏收窄内边距，大屏仍收拢不铺满 */
 @media (max-width: 375px) {
   .compass {

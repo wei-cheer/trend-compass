@@ -2,6 +2,7 @@ import express from 'express'
 import dotenv from 'dotenv'
 import { pathToFileURL } from 'node:url'
 import probeRouter from './modules/probe/router.js'
+import { beaconRouter } from './modules/beacon/router.js'
 
 dotenv.config()
 
@@ -21,6 +22,7 @@ app.use((req, res, next) => {
 })
 
 app.use('/api/probe', probeRouter)
+app.use('/api/beacons', beaconRouter)
 
 // 直接运行（tsx watch 等）时才监听；被测试 import 时不占端口
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
