@@ -34,7 +34,21 @@
 
 **真实外网验证**：给后端带可用代理（`NODE_USE_ENV_PROXY=1` + `HTTPS_PROXY=http://127.0.0.1:29290`）起服务，`curl /api/beacons` → HTTP 200、10 条、id 全带 `hn-`、`publishedAt` 全可解析。首条标题 `Investigation uncovers influencers paid to promote Nvidia to China`（真实数据）。
 
-**浏览器实测（方案 AI 亲自截图）**：墨黑底 + 烫金标题未变、探针 online、"烽火 · 热点列表"下 4 张卡片可见（共 10 条）、每张有 source/热度/时间、Console 无报错。截图为方案 AI 自己补拍（代码 AI 未落盘，见 §4）。验收后关掉前后端，3001/5173 释放，标签交还用户。
+**浏览器实测（方案 AI 亲自截图）**：墨黑底 + 烫金标题未变、探针 online、"烽火 · 热点列表"下 4 张卡片可见（共 10 条）、每张有 source/热度/时间、Console 无报错。截图为方案 AI 自己补拍（代码 AI 未落盘，见 §4），已落盘到 `specs/验收截图-Step6.jpg`。验收后关掉前后端，3001/5173 释放，标签交还用户。
+
+**起服务命令（实测留档，端口以现场为准、不写 `.env`）**：
+
+```powershell
+# PowerShell（代码 AI 交付的原始命令里 NODE_USE_ENV_PROXY=1' 多了引号，此处已修正）
+$env:NODE_USE_ENV_PROXY='1'; $env:HTTPS_PROXY='http://127.0.0.1:<当场实测端口>'; npm run dev
+```
+
+```bash
+# Git Bash
+NODE_USE_ENV_PROXY=1 HTTPS_PROXY=http://127.0.0.1:<当场实测端口> npm run dev
+```
+
+代码 AI 现场测 50220 / 29290 都通、取 50220；方案 AI 验收时 50220 已失效、改用 29290。**端口每次现场验，不固化**（用 `curl -sS -o /dev/null -w "%{http_code}" -x http://127.0.0.1:<端口> https://github.com` 验代理本身是否活着）。
 
 ## 4. 踩到的坑 / 偏差
 
