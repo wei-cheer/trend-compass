@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url'
 import probeRouter from './modules/probe/router.js'
 import { beaconRouter } from './modules/beacon/router.js'
 import { watchTermRouter } from './modules/watchterm/router.js'
+import { beaconMatchRouter } from './modules/beaconmatch/router.js'
 
 dotenv.config()
 
@@ -27,6 +28,7 @@ app.use(express.json())
 app.use('/api/probe', probeRouter)
 app.use('/api/beacons', beaconRouter)
 app.use('/api/watch-terms', watchTermRouter)
+app.use('/api/beacon-match', beaconMatchRouter)
 
 // 直接运行（tsx watch 等）时才监听；被测试 import 时不占端口
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

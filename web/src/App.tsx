@@ -4,6 +4,7 @@ import type { FormEvent } from 'react'
 const PROBE_URL = 'http://localhost:3001/api/probe/status'
 const BEACONS_URL = 'http://localhost:3001/api/beacons'
 const WATCH_TERMS_URL = 'http://localhost:3001/api/watch-terms'
+const BEACON_MATCH_URL = 'http://localhost:3001/api/beacon-match'
 
 type ProbeState = 'loading' | 'online' | 'unreachable'
 
@@ -36,6 +37,7 @@ export default function App() {
   const [probe, setProbe] = useState<ProbeState>('loading')
   const [beacons, setBeacons] = useState<Beacon[] | null>(null)
   const [beaconsFailed, setBeaconsFailed] = useState(false)
+  const [matchTags, setMatchTags] = useState<Record<string, string[]>>({})
 
   const [terms, setTerms] = useState<WatchTerm[]>([])
   const [termsFailed, setTermsFailed] = useState(false)
@@ -104,6 +106,33 @@ export default function App() {
     void loadTerms()
   }, [])
 
+  // 命中标记依赖后端抓取，失败时静默不显示，不影响热点列表
+  useEffect(() => {
+    let cancelled = false
+
+    fetch(BEACON_MATCH_URL, { method: 'POST' })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      })
+      .then((data: { matches?: Array<{ beaconId: string; matchedTerms: string[] }> }) => {
+        if (cancelled) return
+        const next: Record<string, string[]> = {}
+        for (const match of data.matches ?? []) {
+          if (match.matchedTerms.length > 0) next[match.beaconId] = match.matchedTerms
+        }
+        setMatchTags(next)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setMatchTags({})
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const text = newText.trim()
@@ -170,6 +199,11 @@ export default function App() {
             <a className="beacon-card__title" href={beacon.url} target="_blank" rel="noreferrer">
               {beacon.title}
             </a>
+            {matchTags[beacon.id]?.length ? (
+              <p className="beacon-card__tags">
+                <span className="beacon-match-tag">命中：{matchTags[beacon.id].join('、')}</span>
+              </p>
+            ) : null}
             <p className="beacon-card__meta">
               <span className="beacon-card__source">{beacon.source}</span>
               <span className="beacon-card__score">热度 {beacon.score}</span>
