@@ -1,0 +1,179 @@
+:root {
+  /* 颜色：墨黑底 + 朱砂点缀 + 烫金提亮 */
+  --ink-bg: #161311;
+  --ink-surface: #221E1A;
+  --ink-line: #3A332B;
+  --cinnabar: #B93A26;
+  --cinnabar-hover: #e1624e;
+  --cinnabar-active: #911200;
+  --gold: #C6A15B;
+  --paper: #EDE4D3;
+  --paper-dim: #A99B84;
+  --celadon: #6E9E85;
+  --warn: #C08A3E;
+  --danger: #B93A26;
+
+  /* 字体 */
+  --font-family: Georgia, 'Songti SC', 'SimSun', 'Noto Serif SC', serif;
+  --fs-h1: 24px;
+  --fs-h2: 21px;
+  --fs-h3: 18px;
+  --fs-body: 16px;
+  --fs-caption: 14px;
+  --fw-normal: 400;
+  --fw-bold: 700;
+  --lh-base: 1.6;
+  --lh-tight: 1.2;
+
+  /* 间距：4px 基准 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  /* 圆角与阴影：水墨风克制 */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--ink-bg);
+  color: var(--paper);
+  font-family: var(--font-family);
+  font-size: var(--fs-body);
+  line-height: var(--lh-base);
+}
+
+/* 页面容器：单列居中，作战沙盘式收拢留白 */
+.compass {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--space-12) var(--space-8);
+}
+
+.compass__header {
+  margin-bottom: var(--space-8);
+}
+
+.compass__title {
+  margin: 0;
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--cinnabar);
+  color: var(--gold);
+  font-size: var(--fs-h1);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  letter-spacing: 0.08em;
+}
+
+.compass__subtitle {
+  margin: var(--space-2) 0 0 var(--space-3);
+  color: var(--paper-dim);
+  font-size: var(--fs-caption);
+}
+
+/* 探针状态卡 */
+.probe-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 96px;
+  padding: var(--space-6);
+  background: var(--ink-surface);
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.probe-card p {
+  margin: 0;
+  line-height: var(--lh-base);
+}
+
+.probe-card__dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--paper-dim);
+  border-radius: 50%;
+  background: transparent;
+}
+
+/* 加载态：琥珀点脉冲 */
+.probe-card--loading {
+  border-color: var(--ink-line);
+}
+
+.probe-card--loading .probe-card__dot {
+  border-color: var(--warn);
+  background: var(--warn);
+  animation: probe-pulse 1.2s ease-in-out infinite;
+}
+
+.probe-card--loading p {
+  color: var(--warn);
+}
+
+@keyframes probe-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* 在线态：青瓷边 + 青瓷实心点 */
+.probe-card--online {
+  border-color: var(--celadon);
+}
+
+.probe-card--online .probe-card__dot {
+  border-color: var(--celadon);
+  background: var(--celadon);
+}
+
+.probe-card--online p {
+  color: var(--celadon);
+}
+
+/* 不可达态：朱砂边 + 朱砂实心点 + 21px 加粗大字（3.26:1 仅大字号可用） */
+.probe-card--unreachable {
+  border-color: var(--cinnabar);
+}
+
+.probe-card--unreachable .probe-card__dot {
+  border-color: var(--cinnabar);
+  background: var(--cinnabar);
+}
+
+.probe-card--unreachable p {
+  color: var(--danger);
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+}
+
+/* 响应式：小屏收窄内边距，大屏仍收拢不铺满 */
+@media (max-width: 375px) {
+  .compass {
+    padding: var(--space-4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .probe-card--loading .probe-card__dot {
+    animation: none;
+    opacity: 1;
+  }
+}

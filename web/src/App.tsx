@@ -30,13 +30,19 @@ export default function App() {
   }, [])
 
   return (
-    <main>
-      <h1>热点罗盘</h1>
-      <p>
-        {probe === 'loading' && '探针状态：加载中'}
-        {probe === 'online' && '探针状态：online'}
-        {probe === 'unreachable' && '探针不可达'}
-      </p>
+    <main className="compass">
+      <header className="compass__header">
+        <h1 className="compass__title">热点罗盘</h1>
+        <p className="compass__subtitle">多源热点聚合 · 作战沙盘</p>
+      </header>
+      <section className={`probe-card probe-card--${probe}`}>
+        <span className="probe-card__dot" aria-hidden="true" />
+        <p>
+          {probe === 'loading' && '探针状态：加载中'}
+          {probe === 'online' && '探针状态：online'}
+          {probe === 'unreachable' && '探针不可达'}
+        </p>
+      </section>
     </main>
   )
 }
