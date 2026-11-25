@@ -63,10 +63,14 @@
 **阶段一 · 红（先做，贴给我确认后才准写实现）**：只新增 `style-contract.test.tsx`，**不要**动 App.tsx / 建 CSS。
 
 ```bash
-cd /i/apps/trend-compass/web && npm test 2>&1 | grep -A6 'style-contract'
+# 先起后端！否则 probe-contract 的 2 条会因 fetch failed 变红，干扰红阶段判定
+cd /i/apps/trend-compass/api && npm run dev
+cd /i/apps/trend-compass/web && npm test
 ```
 
-期望：这条测试**失败**，失败原因是"输出里找不到 `class="compass"`"之类（断言 class 缺失），**不是**模块加载报错 / `Cannot find module`。贴出这段红输出给我。
+期望红阶段结果：**pass 3 / fail 1**——唯一红的是 style-contract，失败原因是"输出里找不到 `class="compass"`"（断言 class 缺失），**不是**模块加载报错 / `Cannot find module`；另外 3 条（标题、数据契约、跨域）保持绿。贴出完整测试统计和那条红输出给我。
+
+> 验收记录（2026-11-25）：方案 AI 第一次忘起后端，得到 pass1/fail3，其中 2 条是 `fetch failed`（操作顺序错，非代码问题）；起后端后重跑得 pass3/fail1，红因正确 → 放行。代码 AI 别被第一种情况误导。
 
 **阶段二 · 绿（我放行后再做）**：建 CSS、挂 className、加 import，然后：
 
