@@ -364,6 +364,98 @@ body {
   border-color: var(--cinnabar);
 }
 
+/* 模型选择区 */
+.audit-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--ink-surface);
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius-md);
+}
+
+.audit-panel__label {
+  color: var(--gold);
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-bold);
+}
+
+.audit-panel__select,
+.audit-panel__input {
+  padding: var(--space-1) var(--space-3);
+  color: var(--paper);
+  font-size: var(--fs-caption);
+  background: var(--ink-bg);
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius-sm);
+}
+
+.audit-panel__input {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.audit-panel__button {
+  padding: var(--space-1) var(--space-3);
+  color: var(--gold);
+  font-size: var(--fs-caption);
+  background: transparent;
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.audit-panel__current {
+  color: var(--paper-dim);
+  font-size: var(--fs-caption);
+}
+
+.audit-panel__hint {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--paper-dim);
+  font-size: var(--fs-caption);
+}
+
+/* AI 判定 */
+.beacon-audit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: baseline;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--fs-caption);
+  border-left: 3px solid var(--gold);
+  background: transparent;
+}
+
+.beacon-audit__verdict {
+  color: var(--gold);
+  font-weight: var(--fw-bold);
+}
+
+.beacon-audit__reason {
+  color: var(--paper);
+}
+
+.beacon-audit__model {
+  color: var(--paper-dim);
+}
+
+/* 降级态：改用宣纸白 + 虚线，不靠颜色区分 */
+.beacon-audit--degraded {
+  border-left-style: dashed;
+  border-left-color: var(--paper-dim);
+}
+
+.beacon-audit--degraded .beacon-audit__verdict {
+  color: var(--paper-dim);
+}
+
 /* 响应式：小屏收窄内边距，大屏仍收拢不铺满 */
 @media (max-width: 375px) {
   .compass {

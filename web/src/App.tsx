@@ -5,6 +5,14 @@ const PROBE_URL = 'http://localhost:3001/api/probe/status'
 const BEACONS_URL = 'http://localhost:3001/api/beacons'
 const WATCH_TERMS_URL = 'http://localhost:3001/api/watch-terms'
 const BEACON_MATCH_URL = 'http://localhost:3001/api/beacon-match'
+const BEACON_AUDIT_URL = 'http://localhost:3001/api/beacon-audit'
+
+const CUSTOM_MODEL = '__custom__'
+const MODEL_PRESETS = [
+  { value: 'Qwen/Qwen2.5-7B-Instruct', label: 'Qwen2.5-7B（免费）' },
+  { value: 'deepseek-ai/DeepSeek-V3', label: 'DeepSeek-V3' },
+  { value: 'zai-org/GLM-4.6', label: 'GLM-4.6（免费）' },
+]
 
 type ProbeState = 'loading' | 'online' | 'unreachable'
 
@@ -27,6 +35,14 @@ interface WatchTerm {
   createdAt: string
 }
 
+interface BeaconAudit {
+  beaconId: string
+  matchedTerms: string[]
+  isReal: boolean
+  reason: string
+  degraded: boolean
+}
+
 const CATEGORY_LABELS: Record<WatchCategory, string> = {
   official: '官方更新',
   'other-game': '其他游戏',
@@ -38,6 +54,10 @@ export default function App() {
   const [beacons, setBeacons] = useState<Beacon[] | null>(null)
   const [beaconsFailed, setBeaconsFailed] = useState(false)
   const [matchTags, setMatchTags] = useState<Record<string, string[]>>({})
+  const [audits, setAudits] = useState<Record<string, BeaconAudit>>({})
+  const [auditModel, setAuditModel] = useState('')
+  const [selectedModel, setSelectedModel] = useState(MODEL_PRESETS[0].value)
+  const [customModel, setCustomModel] = useState('')
 
   const [terms, setTerms] = useState<WatchTerm[]>([])
   const [termsFailed, setTermsFailed] = useState(false)
@@ -89,6 +109,34 @@ export default function App() {
       cancelled = true
     }
   }, [])
+
+  // 审核：按选中的模型反复调用，切换模型即重审；失败静默
+  async function runAudit(model?: string) {
+    try {
+      const res = await fetch(BEACON_AUDIT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(model ? { model } : {}),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = (await res.json()) as { audits?: BeaconAudit[]; model?: string }
+      const next: Record<string, BeaconAudit> = {}
+      for (const audit of data.audits ?? []) next[audit.beaconId] = audit
+      setAudits(next)
+      setAuditModel(data.model ?? '')
+    } catch {
+      setAudits({})
+    }
+  }
+
+  useEffect(() => {
+    void runAudit()
+  }, [])
+
+  function handleModelChange(value: string) {
+    setSelectedModel(value)
+    if (value !== CUSTOM_MODEL) void runAudit(value)
+  }
 
   async function loadTerms() {
     try {
@@ -189,6 +237,44 @@ export default function App() {
       </section>
       <section className="beacon-board">
         <h2 className="beacon-board__title">烽火 · 热点列表</h2>
+        <div className="audit-panel">
+          <label className="audit-panel__label" htmlFor="audit-model">
+            审核模型
+          </label>
+          <select
+            id="audit-model"
+            className="audit-panel__select"
+            value={selectedModel}
+            onChange={(event) => handleModelChange(event.target.value)}
+          >
+            {MODEL_PRESETS.map((preset) => (
+              <option key={preset.value} value={preset.value}>
+                {preset.label}
+              </option>
+            ))}
+            <option value={CUSTOM_MODEL}>自定义模型 ID</option>
+          </select>
+          {selectedModel === CUSTOM_MODEL && (
+            <>
+              <input
+                className="audit-panel__input"
+                type="text"
+                value={customModel}
+                placeholder="粘贴完整模型 ID"
+                onChange={(event) => setCustomModel(event.target.value)}
+              />
+              <button
+                className="audit-panel__button"
+                type="button"
+                onClick={() => void runAudit(customModel.trim() || undefined)}
+              >
+                审核
+              </button>
+            </>
+          )}
+          {auditModel && <span className="audit-panel__current">本次模型：{auditModel}</span>}
+          <p className="audit-panel__hint">完整模型名称从硅基流动模型广场复制</p>
+        </div>
         {beacons === null && <p className="beacon-board__hint">热点加载中…</p>}
         {beacons !== null && beaconsFailed && <p className="beacon-board__hint">热点拉取失败</p>}
         {beacons !== null && !beaconsFailed && beacons.length === 0 && (
@@ -202,6 +288,17 @@ export default function App() {
             {matchTags[beacon.id]?.length ? (
               <p className="beacon-card__tags">
                 <span className="beacon-match-tag">命中：{matchTags[beacon.id].join('、')}</span>
+              </p>
+            ) : null}
+            {audits[beacon.id] ? (
+              <p
+                className={`beacon-audit${audits[beacon.id].degraded ? ' beacon-audit--degraded' : ''}`}
+              >
+                <span className="beacon-audit__verdict">
+                  {audits[beacon.id].degraded ? '未判定' : audits[beacon.id].isReal ? '真实' : '存疑'}
+                </span>
+                <span className="beacon-audit__reason">{audits[beacon.id].reason}</span>
+                <span className="beacon-audit__model">本次模型：{auditModel}</span>
               </p>
             ) : null}
             <p className="beacon-card__meta">
