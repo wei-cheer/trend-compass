@@ -364,6 +364,56 @@ body {
   border-color: var(--cinnabar);
 }
 
+/* 巡检设置区 */
+.sweep-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--ink-surface);
+  border: 1px solid var(--ink-line);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--radius-md);
+}
+
+.sweep-panel__label {
+  color: var(--gold);
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-bold);
+}
+
+.sweep-panel__select {
+  padding: var(--space-1) var(--space-3);
+  color: var(--paper);
+  font-size: var(--fs-caption);
+  background: var(--ink-bg);
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius-sm);
+}
+
+.sweep-panel__button {
+  padding: var(--space-1) var(--space-3);
+  color: var(--ink-bg);
+  font-size: var(--fs-caption);
+  background: var(--gold);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.sweep-panel__button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.sweep-panel__time,
+.sweep-panel__history {
+  color: var(--paper-dim);
+  font-size: var(--fs-caption);
+}
+
 /* 模型选择区 */
 .audit-panel {
   display: flex;

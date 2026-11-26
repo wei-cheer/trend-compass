@@ -2,10 +2,8 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 
 const PROBE_URL = 'http://localhost:3001/api/probe/status'
-const BEACONS_URL = 'http://localhost:3001/api/beacons'
 const WATCH_TERMS_URL = 'http://localhost:3001/api/watch-terms'
-const BEACON_MATCH_URL = 'http://localhost:3001/api/beacon-match'
-const BEACON_AUDIT_URL = 'http://localhost:3001/api/beacon-audit'
+const SWEEP_URL = 'http://localhost:3001/api/sweep'
 
 const CUSTOM_MODEL = '__custom__'
 const MODEL_PRESETS = [
@@ -15,6 +13,17 @@ const MODEL_PRESETS = [
 ]
 
 type ProbeState = 'loading' | 'online' | 'unreachable'
+
+type SweepMode = 'memory' | 'file' | 'both'
+
+interface SweepSnapshot {
+  sweptAt: string
+  beacons: Beacon[]
+  matches: Array<{ beaconId: string; matchedTerms: string[] }>
+  audits: BeaconAudit[]
+  model: string
+  status: 'ok' | 'degraded'
+}
 
 interface Beacon {
   id: string
@@ -52,12 +61,16 @@ const CATEGORY_LABELS: Record<WatchCategory, string> = {
 export default function App() {
   const [probe, setProbe] = useState<ProbeState>('loading')
   const [beacons, setBeacons] = useState<Beacon[] | null>(null)
-  const [beaconsFailed, setBeaconsFailed] = useState(false)
+  const [snapshotFailed, setSnapshotFailed] = useState(false)
   const [matchTags, setMatchTags] = useState<Record<string, string[]>>({})
   const [audits, setAudits] = useState<Record<string, BeaconAudit>>({})
   const [auditModel, setAuditModel] = useState('')
   const [selectedModel, setSelectedModel] = useState(MODEL_PRESETS[0].value)
   const [customModel, setCustomModel] = useState('')
+  const [sweepMode, setSweepMode] = useState<SweepMode>('memory')
+  const [lastSweptAt, setLastSweptAt] = useState('')
+  const [historyCount, setHistoryCount] = useState(0)
+  const [sweeping, setSweeping] = useState(false)
 
   const [terms, setTerms] = useState<WatchTerm[]>([])
   const [termsFailed, setTermsFailed] = useState(false)
@@ -87,55 +100,95 @@ export default function App() {
     }
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
-
-    fetch(BEACONS_URL)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json()
-      })
-      .then((data: { beacons?: Beacon[] }) => {
-        if (cancelled) return
-        setBeacons(Array.isArray(data.beacons) ? data.beacons : [])
-      })
-      .catch(() => {
-        if (cancelled) return
-        setBeaconsFailed(true)
-        setBeacons([])
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  // 审核：按选中的模型反复调用，切换模型即重审；失败静默
-  async function runAudit(model?: string) {
+  // 单一数据源：只读巡检快照（抓取/匹配/审核由后端定时跑好）
+  async function loadSweep() {
     try {
-      const res = await fetch(BEACON_AUDIT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(model ? { model } : {}),
-      })
+      const res = await fetch(`${SWEEP_URL}/latest`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = (await res.json()) as { audits?: BeaconAudit[]; model?: string }
-      const next: Record<string, BeaconAudit> = {}
-      for (const audit of data.audits ?? []) next[audit.beaconId] = audit
-      setAudits(next)
-      setAuditModel(data.model ?? '')
+      const data = (await res.json()) as {
+        mode?: SweepMode
+        latest?: SweepSnapshot | null
+        history?: SweepSnapshot[]
+      }
+
+      setSweepMode(data.mode ?? 'memory')
+      setHistoryCount(Array.isArray(data.history) ? data.history.length : 0)
+      setSnapshotFailed(false)
+
+      const latest = data.latest ?? null
+      if (!latest) {
+        setBeacons([])
+        setMatchTags({})
+        setAudits({})
+        setAuditModel('')
+        setLastSweptAt('')
+        return
+      }
+
+      setBeacons(Array.isArray(latest.beacons) ? latest.beacons : [])
+
+      const tags: Record<string, string[]> = {}
+      for (const match of latest.matches ?? []) {
+        if (match.matchedTerms.length > 0) tags[match.beaconId] = match.matchedTerms
+      }
+      setMatchTags(tags)
+
+      const auditMap: Record<string, BeaconAudit> = {}
+      for (const audit of latest.audits ?? []) auditMap[audit.beaconId] = audit
+      setAudits(auditMap)
+      setAuditModel(latest.model ?? '')
+      setLastSweptAt(latest.sweptAt ?? '')
     } catch {
-      setAudits({})
+      setSnapshotFailed(true)
+      setBeacons([])
     }
   }
 
   useEffect(() => {
-    void runAudit()
+    void loadSweep()
   }, [])
+
+  // 手动巡检 / 换模型重巡：跑完统一回读快照；409 表示正在跑，静默
+  async function runSweep(model?: string) {
+    setSweeping(true)
+    try {
+      const res = await fetch(`${SWEEP_URL}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(model ? { model } : {}),
+      })
+      if (res.status !== 409 && !res.ok) throw new Error(`HTTP ${res.status}`)
+    } catch {
+      // 失败静默，保留上一份快照
+    } finally {
+      setSweeping(false)
+      await loadSweep()
+    }
+  }
+
+  // 热切换存储模式：切换后按新模式回读
+  async function handleModeChange(mode: SweepMode) {
+    setSweepMode(mode)
+    try {
+      const res = await fetch(`${SWEEP_URL}/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    } catch {
+      // 失败静默
+    }
+    await loadSweep()
+  }
+
+  function currentModelArg(): string | undefined {
+    return selectedModel === CUSTOM_MODEL ? customModel.trim() || undefined : selectedModel
+  }
 
   function handleModelChange(value: string) {
     setSelectedModel(value)
-    if (value !== CUSTOM_MODEL) void runAudit(value)
+    if (value !== CUSTOM_MODEL) void runSweep(value)
   }
 
   async function loadTerms() {
@@ -154,32 +207,7 @@ export default function App() {
     void loadTerms()
   }, [])
 
-  // 命中标记依赖后端抓取，失败时静默不显示，不影响热点列表
-  useEffect(() => {
-    let cancelled = false
-
-    fetch(BEACON_MATCH_URL, { method: 'POST' })
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json()
-      })
-      .then((data: { matches?: Array<{ beaconId: string; matchedTerms: string[] }> }) => {
-        if (cancelled) return
-        const next: Record<string, string[]> = {}
-        for (const match of data.matches ?? []) {
-          if (match.matchedTerms.length > 0) next[match.beaconId] = match.matchedTerms
-        }
-        setMatchTags(next)
-      })
-      .catch(() => {
-        if (cancelled) return
-        setMatchTags({})
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  // 命中标记与 AI 判定都来自同一份快照，不再单独请求
 
   async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -237,6 +265,37 @@ export default function App() {
       </section>
       <section className="beacon-board">
         <h2 className="beacon-board__title">烽火 · 热点列表</h2>
+        <div className="sweep-panel">
+          <label className="sweep-panel__label" htmlFor="sweep-mode">
+            巡检存储
+          </label>
+          <select
+            id="sweep-mode"
+            className="sweep-panel__select"
+            value={sweepMode}
+            onChange={(event) => void handleModeChange(event.target.value as SweepMode)}
+          >
+            <option value="memory">仅内存</option>
+            <option value="file">仅文件</option>
+            <option value="both">双开</option>
+          </select>
+          <button
+            className="sweep-panel__button"
+            type="button"
+            disabled={sweeping}
+            onClick={() => void runSweep(currentModelArg())}
+          >
+            {sweeping ? '巡检中…' : '立即巡检'}
+          </button>
+          {lastSweptAt && (
+            <span className="sweep-panel__time">
+              上次巡检：{new Date(lastSweptAt).toLocaleString('zh-CN')}
+            </span>
+          )}
+          {sweepMode !== 'memory' && (
+            <span className="sweep-panel__history">历史快照：{historyCount} 条</span>
+          )}
+        </div>
         <div className="audit-panel">
           <label className="audit-panel__label" htmlFor="audit-model">
             审核模型
@@ -266,7 +325,7 @@ export default function App() {
               <button
                 className="audit-panel__button"
                 type="button"
-                onClick={() => void runAudit(customModel.trim() || undefined)}
+                onClick={() => void runSweep(currentModelArg())}
               >
                 审核
               </button>
@@ -276,9 +335,9 @@ export default function App() {
           <p className="audit-panel__hint">完整模型名称从硅基流动模型广场复制</p>
         </div>
         {beacons === null && <p className="beacon-board__hint">热点加载中…</p>}
-        {beacons !== null && beaconsFailed && <p className="beacon-board__hint">热点拉取失败</p>}
-        {beacons !== null && !beaconsFailed && beacons.length === 0 && (
-          <p className="beacon-board__hint">暂无热点</p>
+        {beacons !== null && snapshotFailed && <p className="beacon-board__hint">巡检数据拉取失败</p>}
+        {beacons !== null && !snapshotFailed && beacons.length === 0 && (
+          <p className="beacon-board__hint">暂无快照，点「立即巡检」生成一份</p>
         )}
         {beacons?.map((beacon) => (
           <article key={beacon.id} className="beacon-card">
